@@ -255,6 +255,30 @@ run_with_progress "Deploying ${SERVICE} to Cloud Run" \
     --min-instances=1 \
     --quiet
 
+# Poll for service readiness (ensure deployment completed end-to-end)
+show_info "Waiting for Cloud Run service to report Ready status..."
+READY_TIMEOUT=${READY_TIMEOUT:-900} # seconds (15 minutes)
+READY_INTERVAL=5
+elapsed=0
+while true; do
+  READY_STATE=$(gcloud run services describe "$SERVICE" --region="$REGION" --platform=managed --format='value(status.conditions[?(@.type=="Ready")].state)' 2>>"$LOG_FILE" || true)
+  if [[ "$READY_STATE" == "True" ]]; then
+    show_success "Cloud Run service is Ready"
+    break
+  fi
+  if (( elapsed >= READY_TIMEOUT )); then
+    show_error "Timed out waiting for Cloud Run service readiness (after ${READY_TIMEOUT}s). Check logs: $LOG_FILE"
+    exit 1
+  fi
+  if [[ -t 1 ]]; then
+    pct=$(( elapsed * 100 / READY_TIMEOUT ))
+    printf "\r${C_PURPLE}⟳${RESET} ${C_CYAN}Waiting for service readiness...${RESET} [${C_YELLOW}%s%%%s${RESET}]" "$pct" ""
+  fi
+  sleep $READY_INTERVAL
+  elapsed=$(( elapsed + READY_INTERVAL ))
+done
+printf "\n"
+
 # =================== Step 8: Result ===================
 show_step "08" "Deployment Result"
 
