@@ -25,11 +25,12 @@ fi
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
 
 # ===== User Inputs =====
-read -rp "🔐 Choose Protocol (vless/vmess/trojan): " PROTO
+read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO
 PROTO="${PROTO,,}"
+PROTO="${PROTO:-vless}"
 
 if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
-  echo "❌ Invalid protocol"
+  echo "❌ Invalid protocol (use: vless / vmess / trojan)"
   exit 1
 fi
 
