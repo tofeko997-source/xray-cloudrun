@@ -25,39 +25,45 @@ fi
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
 
 # ===== User Inputs =====
-# Redirect input from /dev/tty to work with curl | bash
+# Set defaults first
+PROTO="vless"
+WS_PATH="/ws"
+CUSTOM_DOMAIN=""
+SERVICE="xray-ws"
+R="1"
+
+# Try to read from /dev/tty for interactive input
 if [[ -c /dev/tty ]]; then
-  read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO < /dev/tty
-  read -rp "📡 WebSocket Path (default: /ws): " WS_PATH < /dev/tty
+  read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " INPUT_PROTO < /dev/tty
+  [[ -n "$INPUT_PROTO" ]] && PROTO="$INPUT_PROTO"
+  
+  read -rp "📡 WebSocket Path (default: /ws): " INPUT_WS_PATH < /dev/tty
+  [[ -n "$INPUT_WS_PATH" ]] && WS_PATH="$INPUT_WS_PATH"
+  
   read -rp "🌐 Custom Domain (empty = run.app): " CUSTOM_DOMAIN < /dev/tty || true
-  read -rp "🪪 Service Name (default: xray-ws): " SERVICE < /dev/tty
+  
+  read -rp "🪪 Service Name (default: xray-ws): " INPUT_SERVICE < /dev/tty
+  [[ -n "$INPUT_SERVICE" ]] && SERVICE="$INPUT_SERVICE"
+  
   echo ""
   echo "🌍 Choose Region:"
   echo "1) us-central1"
   echo "2) europe-west1"
   echo "3) asia-southeast1"
-  read -rp "Select [1-3]: " R < /dev/tty
-else
-  echo "⚠️ Non-interactive mode: using defaults"
-  PROTO="vless"
-  WS_PATH="/ws"
-  CUSTOM_DOMAIN=""
-  SERVICE="xray-ws"
-  R="1"
+  read -rp "Select [1-3]: " INPUT_R < /dev/tty
+  [[ -n "$INPUT_R" ]] && R="$INPUT_R"
 fi
 
+# Convert to lowercase
 PROTO="${PROTO,,}"
-PROTO="${PROTO:-vless}"
 
+# Validate protocol
 if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
-  echo "❌ Invalid protocol (use: vless / vmess / trojan)"
+  echo "❌ Invalid protocol: $PROTO (use: vless / vmess / trojan)"
   exit 1
 fi
 
-WS_PATH="${WS_PATH:-/ws}"
-SERVICE="${SERVICE:-xray-ws}"
-
-R="${R:-1}"
+# Process region selection
 case "$R" in
   2) REGION="europe-west1" ;;
   3) REGION="asia-southeast1" ;;
