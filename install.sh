@@ -101,15 +101,27 @@ else
   WSPATH=""
 fi
 
-# -------- Domain --------
-# Always use Cloud Run default URL
-DOMAIN=""
+# -------- Custom Hostname (optional) --------
+if [ "${INTERACTIVE}" = true ] && [ -z "${CUSTOM_HOST:-}" ]; then
+  echo ""
+  echo "🌐 Custom Hostname Options:"
+  echo "   Leave blank to use Cloud Run default: SERVICE-PROJECT_ID.REGION.run.app"
+  echo "   Or enter a custom domain: my-proxy.example.com"
+  read -rp "Custom hostname (optional): " CUSTOM_HOST
+fi
+CUSTOM_HOST="${CUSTOM_HOST:-}"
 
 # -------- Service Name --------
 if [ "${INTERACTIVE}" = true ] && [ -z "${SERVICE:-}" ]; then
-  read -rp "🪪 Service Name (default: xray-ws): " SERVICE
+  read -rp "🪪 Cloud Run Service Name (default: xray-ws): " SERVICE
 fi
 SERVICE="${SERVICE:-xray-ws}"
+
+# Validate service name format
+if ! [[ "$SERVICE" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]; then
+  echo "❌ Invalid service name. Use lowercase alphanumeric and hyphens only (1-63 chars)."
+  exit 1
+fi
 
 # -------- Optional Link Parameters --------
 if [ "${INTERACTIVE}" = true ] && [ -z "${SNI:-}" ]; then
@@ -232,9 +244,17 @@ gcloud run deploy "$SERVICE" "${DEPLOY_ARGS[@]}"
 
 # -------- Get URL --------
 PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project 2>/dev/null) --format="value(projectNumber)" 2>/dev/null)
-HOST="${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
-echo "Service URL: https://${HOST}"
-echo "✅ Using primary domain: ${HOST}"
+
+# Use custom hostname if provided, otherwise use Cloud Run default
+if [ -n "${CUSTOM_HOST}" ]; then
+  HOST="${CUSTOM_HOST}"
+  echo "Service URL: https://${HOST}"
+  echo "✅ Using custom hostname: ${HOST}"
+else
+  HOST="${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
+  echo "Service URL: https://${HOST}"
+  echo "✅ Using Cloud Run default: ${HOST}"
+fi
 
 # -------- Output --------
 echo "=========================================="
