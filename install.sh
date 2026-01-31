@@ -55,11 +55,50 @@ if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
   exit 1
 fi
 
-# -------- WS Path --------
-if [ "${INTERACTIVE}" = true ] && [ -z "${WSPATH:-}" ]; then
-  read -rp "📡 WebSocket Path (default: /ws): " WSPATH
+# -------- Network Type --------
+if [ "${INTERACTIVE}" = true ] && [ -z "${NETWORK:-}" ]; then
+  echo ""
+  echo "🌐 Choose Network Type:"
+  echo "1) WebSocket (ws)"
+  echo "2) TCP"
+  echo "3) gRPC"
+  read -rp "Select network type [1-3] (default: 1): " NETWORK_CHOICE
 fi
-WSPATH="${WSPATH:-/ws}"
+NETWORK_CHOICE="${NETWORK_CHOICE:-1}"
+
+case "$NETWORK_CHOICE" in
+  1)
+    NETWORK="ws"
+    NETWORK_DISPLAY="WebSocket"
+    ;;
+  2)
+    NETWORK="tcp"
+    NETWORK_DISPLAY="TCP"
+    ;;
+  3)
+    NETWORK="grpc"
+    NETWORK_DISPLAY="gRPC"
+    ;;
+  *)
+    echo "❌ Invalid network type selection"
+    exit 1
+    ;;
+esac
+
+# -------- WS Path --------
+if [ "$NETWORK" = "ws" ]; then
+  if [ "${INTERACTIVE}" = true ] && [ -z "${WSPATH:-}" ]; then
+    read -rp "📡 WebSocket Path (default: /ws): " WSPATH
+  fi
+  WSPATH="${WSPATH:-/ws}"
+elif [ "$NETWORK" = "grpc" ]; then
+  if [ "${INTERACTIVE}" = true ] && [ -z "${WSPATH:-}" ]; then
+    read -rp "🔌 gRPC Service Name (default: xray): " WSPATH
+  fi
+  WSPATH="${WSPATH:-xray}"
+else
+  WSPATH=""
+fi
 
 # -------- Domain --------
 # Always use Cloud Run default URL
@@ -178,10 +217,45 @@ EOF
 )
 fi
 
-# Ensure path begins with '/'
-if [[ "${WSPATH}" != /* ]]; then
+# Ensure path begins with '/' for WebSocket
+if [ "$NETWORK" = "ws" ] && [[ "${WSPATH}" != /* ]]; then
   WSPATH="/${WSPATH}"
 fi
+
+# Build streamSettings based on network type
+if [ "$NETWORK" = "ws" ]; then
+  STREAM_SETTINGS=$(cat <<'EOF'
+      "network": "ws",
+      "security": "tls",
+      "wsSettings": {
+        "path": "$WSPATH"
+      }
+EOF
+)
+elif [ "$NETWORK" = "tcp" ]; then
+  STREAM_SETTINGS=$(cat <<'EOF'
+      "network": "tcp",
+      "security": "tls",
+      "tcpSettings": {
+        "header": {
+          "type": "none"
+        }
+      }
+EOF
+)
+elif [ "$NETWORK" = "grpc" ]; then
+  STREAM_SETTINGS=$(cat <<'EOF'
+      "network": "grpc",
+      "security": "tls",
+      "grpcSettings": {
+        "serviceName": "$WSPATH"
+      }
+EOF
+)
+fi
+
+# Replace $WSPATH in stream settings
+STREAM_SETTINGS="${STREAM_SETTINGS//\$WSPATH/$WSPATH}"
 
 cat > config.json <<EOF
 {
@@ -193,11 +267,7 @@ cat > config.json <<EOF
       $CLIENT_CONFIG
     },
     "streamSettings": {
-      "network": "ws",
-      "security": "none",
-      "wsSettings": {
-        "path": "$WSPATH"
-      }
+      $STREAM_SETTINGS
     }
   }],
   "outbounds": [{
@@ -242,8 +312,12 @@ echo "Protocol : $PROTO"
 echo "Address  : $HOST"
 echo "Port     : 443 (Cloud Run HTTPS)"
 echo "UUID/PWD : $UUID"
-echo "Path     : $WSPATH"
-echo "Network  : WebSocket"
+if [ "$NETWORK" = "ws" ]; then
+  echo "Path     : $WSPATH"
+elif [ "$NETWORK" = "grpc" ]; then
+  echo "Service  : $WSPATH"
+fi
+echo "Network  : $NETWORK_DISPLAY"
 echo "TLS      : ON"
 if [ -n "${MEMORY}${CPU}${TIMEOUT}${MAX_INSTANCES}${CONCURRENCY}" ]; then
   echo ""
@@ -257,8 +331,18 @@ fi
 echo "=========================================="
 
 # -------- Generate Protocol Links --------
+# -------- Generate Protocol Links --------
+# Build query parameters based on network type
+if [ "$NETWORK" = "ws" ]; then
+  QUERY_PARAMS="type=ws&security=tls&path=${WSPATH}"
+elif [ "$NETWORK" = "tcp" ]; then
+  QUERY_PARAMS="type=tcp&security=tls"
+elif [ "$NETWORK" = "grpc" ]; then
+  QUERY_PARAMS="type=grpc&security=tls&serviceName=${WSPATH}"
+fi
+
 if [ "$PROTO" = "vless" ]; then
-  VLESS_LINK="vless://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
+  VLESS_LINK="vless://${UUID}@${HOST}:443?${QUERY_PARAMS}#xray"
   echo ""
   echo "📎 VLESS LINK:"
   echo "$VLESS_LINK"
@@ -272,7 +356,7 @@ elif [ "$PROTO" = "vmess" ]; then
   "port": "443",
   "id": "$UUID",
   "aid": "0",
-  "net": "ws",
+  "net": "$NETWORK",
   "type": "none",
   "host": "$HOST",
   "path": "$WSPATH",
@@ -286,24 +370,121 @@ EOF
   echo "$VMESS_LINK"
   SHARE_LINK="$VMESS_LINK"
 elif [ "$PROTO" = "trojan" ]; then
-  TROJAN_LINK="trojan://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
+  TROJAN_LINK="trojan://${UUID}@${HOST}:443?${QUERY_PARAMS}#xray"
   echo ""
   echo "📎 TROJAN LINK:"
   echo "$TROJAN_LINK"
   SHARE_LINK="$TROJAN_LINK"
 fi
 
+# -------- Generate Data URIs --------
+echo ""
+echo "📊 DATA URIs:"
+echo "=========================================="
+
+# Prepare path/service info
+PATH_INFO=""
+if [ "$NETWORK" = "ws" ]; then
+  PATH_INFO="Path: ${WSPATH}"
+elif [ "$NETWORK" = "grpc" ]; then
+  PATH_INFO="Service: ${WSPATH}"
+fi
+
+# Data URI 1: Plain text configuration
+CONFIG_TEXT="✅ XRAY DEPLOYMENT SUCCESS
+
+Protocol: ${PROTO^^}
+Host: ${HOST}
+Port: 443
+UUID/Password: ${UUID}
+${PATH_INFO}
+Network: ${NETWORK_DISPLAY} + TLS"
+
+DATA_URI_TEXT="data:text/plain;base64,$(echo -n "$CONFIG_TEXT" | base64 -w 0)"
+echo "📋 Data URI (Text):"
+echo "$DATA_URI_TEXT"
+echo ""
+
+# Data URI 2: JSON configuration
+if [ "$NETWORK" = "ws" ]; then
+  CONFIG_JSON=$(cat <<EOF
+{
+  "protocol": "${PROTO}",
+  "host": "${HOST}",
+  "port": 443,
+  "uuid_password": "${UUID}",
+  "path": "${WSPATH}",
+  "network": "${NETWORK}",
+  "network_display": "${NETWORK_DISPLAY}",
+  "tls": true,
+  "share_link": "${SHARE_LINK}"
+}
+EOF
+)
+elif [ "$NETWORK" = "grpc" ]; then
+  CONFIG_JSON=$(cat <<EOF
+{
+  "protocol": "${PROTO}",
+  "host": "${HOST}",
+  "port": 443,
+  "uuid_password": "${UUID}",
+  "service_name": "${WSPATH}",
+  "network": "${NETWORK}",
+  "network_display": "${NETWORK_DISPLAY}",
+  "tls": true,
+  "share_link": "${SHARE_LINK}"
+}
+EOF
+)
+else
+  CONFIG_JSON=$(cat <<EOF
+{
+  "protocol": "${PROTO}",
+  "host": "${HOST}",
+  "port": 443,
+  "uuid_password": "${UUID}",
+  "network": "${NETWORK}",
+  "network_display": "${NETWORK_DISPLAY}",
+  "tls": true,
+  "share_link": "${SHARE_LINK}"
+}
+EOF
+)
+fi
+
+DATA_URI_JSON="data:application/json;base64,$(echo -n "$CONFIG_JSON" | base64 -w 0)"
+echo "📊 Data URI (JSON):"
+echo "$DATA_URI_JSON"
+echo "=========================================="
+
 # -------- Send to Telegram --------
 if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
+  # Build the main message with path/service info
+  if [ "$NETWORK" = "ws" ]; then
+    TELEGRAM_PATH="<b>Path:</b> <code>${WSPATH}</code>"
+  elif [ "$NETWORK" = "grpc" ]; then
+    TELEGRAM_PATH="<b>Service:</b> <code>${WSPATH}</code>"
+  else
+    TELEGRAM_PATH=""
+  fi
+  
   send_telegram "✅ <b>XRAY DEPLOYMENT SUCCESS</b>
 
 <b>Protocol:</b> <code>${PROTO^^}</code>
 <b>Host:</b> <code>${HOST}</code>
 <b>Port:</b> <code>443</code>
 <b>UUID/Password:</b> <code>${UUID}</code>
-<b>Path:</b> <code>${WSPATH}</code>
-<b>Network:</b> WebSocket + TLS"
+${TELEGRAM_PATH}
+<b>Network:</b> ${NETWORK_DISPLAY} + TLS"
   
   send_telegram "<b>🔗 Share Link:</b>
 <code>${SHARE_LINK}</code>"
+  
+  send_telegram "<b>📊 Data URIs:</b>
+
+<b>Text Format:</b>
+<code>${DATA_URI_TEXT}</code>
+
+<b>JSON Format:</b>
+<code>${DATA_URI_JSON}</code>"
 fi
