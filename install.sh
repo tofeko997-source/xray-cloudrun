@@ -99,6 +99,29 @@ fi
 REGION="${AVAILABLE_REGIONS[$((IDX-1))]}"
 echo "✅ Selected region: $REGION"
 
+# -------- Performance Settings (for 1000+ users) --------
+if [ "${INTERACTIVE}" = true ] && [ -z "${MEMORY:-}" ]; then
+  read -rp "💾 Memory (MB) [2048]: " MEMORY
+fi
+MEMORY="${MEMORY:-2048}"
+
+if [ "${INTERACTIVE}" = true ] && [ -z "${CPU:-}" ]; then
+  read -rp "⚙️  CPU cores [2]: " CPU
+fi
+CPU="${CPU:-2}"
+
+if [ "${INTERACTIVE}" = true ] && [ -z "${TIMEOUT:-}" ]; then
+  read -rp "⏱️  Request timeout (seconds) [3600]: " TIMEOUT
+fi
+TIMEOUT="${TIMEOUT:-3600}"
+
+if [ "${INTERACTIVE}" = true ] && [ -z "${MAX_INSTANCES:-}" ]; then
+  read -rp "📊 Max instances [100]: " MAX_INSTANCES
+fi
+MAX_INSTANCES="${MAX_INSTANCES:-100}"
+
+echo "✅ Performance config: ${MEMORY}MB, ${CPU} CPU, ${TIMEOUT}s timeout, ${MAX_INSTANCES} max instances"
+
 # -------- Sanity checks --------
 if ! command -v gcloud >/dev/null 2>&1; then
   echo "❌ gcloud CLI not found. Install and authenticate first."
@@ -170,12 +193,17 @@ EOF
 
 
 
-echo "🚀 Deploying XRAY to Cloud Run..."
+echo "🚀 Deploying XRAY to Cloud Run with optimized settings..."
 gcloud run deploy "$SERVICE" \
   --source . \
   --region "$REGION" \
   --platform managed \
   --allow-unauthenticated \
+  --memory "${MEMORY}Mi" \
+  --cpu "$CPU" \
+  --timeout "$TIMEOUT" \
+  --max-instances "$MAX_INSTANCES" \
+  --concurrency 1000 \
   --quiet
 
 # -------- Get URL --------
@@ -201,6 +229,13 @@ echo "UUID/PWD : $UUID"
 echo "Path     : $WSPATH"
 echo "Network  : WebSocket"
 echo "TLS      : ON"
+echo ""
+echo "📊 Performance Configuration:"
+echo "Memory   : ${MEMORY}MB"
+echo "CPU      : ${CPU} cores"
+echo "Timeout  : ${TIMEOUT} seconds"
+echo "Max Instances : ${MAX_INSTANCES}"
+echo "Max Concurrent: 1000+ requests"
 echo "=========================================="
 
 # -------- Generate Protocol Links --------
