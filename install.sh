@@ -125,6 +125,7 @@ cat > config.json <<EOF
 {
   "inbounds": [{
     "port": 8080,
+    "listen": "0.0.0.0",
     "protocol": "$PROTO",
     "settings": {
       $CLIENT_CONFIG
