@@ -45,11 +45,8 @@ func main() {
 		s = strings.ReplaceAll(s, k, v)
 	}
 
-	// write output
-	outPath := "/etc/xray/config.json"
-	if err := os.MkdirAll("/etc/xray", 0755); err != nil {
-		log.Fatalf("failed to create dir: %v", err)
-	}
+	// write output to a writable location
+	outPath := "/tmp/config.json"
 	if err := ioutil.WriteFile(outPath, []byte(s), 0644); err != nil {
 		log.Fatalf("failed to write config: %v", err)
 	}
