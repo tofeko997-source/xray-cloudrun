@@ -1,19 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# If stdin is not a terminal (script piped), open /dev/tty for interactive input
-if [ ! -t 0 ]; then
-  exec </dev/tty
+# Detect interactive mode (has a TTY). When non-interactive (e.g. `curl | bash`),
+# the script will read configuration from environment variables or use defaults.
+if [ -t 0 ] && [ -t 1 ]; then
+  INTERACTIVE=true
+else
+  INTERACTIVE=false
 fi
+
+# Non-interactive usage examples:
+#  PROTO=vmess WSPATH=/ws DOMAIN=example.com SERVICE=my-service IDX=3 bash install.sh
+#  PROTO=vmess WSPATH=/ws DOMAIN=example.com SERVICE=my-service IDX=3 curl -fsSL https://... | bash
 
 echo "=========================================="
 echo "  XRAY Cloud Run (VLESS / VMESS / TROJAN)"
 echo "=========================================="
 
 # -------- Protocol --------
-read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO
-PROTO="${PROTO,,}"
+if [ "${INTERACTIVE}" = true ] && [ -z "${PROTO:-}" ]; then
+  read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO
+fi
 PROTO="${PROTO:-vless}"
+PROTO="${PROTO,,}"
 
 # Validate protocol
 if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
@@ -22,14 +31,20 @@ if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
 fi
 
 # -------- WS Path --------
-read -rp "📡 WebSocket Path (default: /ws): " WSPATH
+if [ "${INTERACTIVE}" = true ] && [ -z "${WSPATH:-}" ]; then
+  read -rp "📡 WebSocket Path (default: /ws): " WSPATH
+fi
 WSPATH="${WSPATH:-/ws}"
 
 # -------- Domain --------
-read -rp "🌐 Custom Domain (empty = use Cloud Run URL): " DOMAIN
+if [ "${INTERACTIVE}" = true ] && [ -z "${DOMAIN:-}" ]; then
+  read -rp "🌐 Custom Domain (empty = use Cloud Run URL): " DOMAIN
+fi
 
 # -------- Service Name --------
-read -rp "🪪 Service Name (default: xray-ws): " SERVICE
+if [ "${INTERACTIVE}" = true ] && [ -z "${SERVICE:-}" ]; then
+  read -rp "🪪 Service Name (default: xray-ws): " SERVICE
+fi
 SERVICE="${SERVICE:-xray-ws}"
 
 # -------- UUID --------
@@ -39,14 +54,16 @@ UUID=$(cat /proc/sys/kernel/random/uuid)
 echo ""
 AVAILABLE_REGIONS=("us-central1" "us-east1" "us-west1" "us-south1" "europe-west1" "europe-west4" "asia-east1" "asia-northeast1" "asia-southeast1")
 
-echo "🌍 Available regions:"
-i=1
-for r in "${AVAILABLE_REGIONS[@]}"; do
-  echo "$i) $r"
-  ((i++))
-done
+if [ "${INTERACTIVE}" = true ] && [ -z "${IDX:-}" ]; then
+  echo "🌍 Available regions:"
+  i=1
+  for r in "${AVAILABLE_REGIONS[@]}"; do
+    echo "$i) $r"
+    ((i++))
+  done
+  read -rp "Select region [1-${#AVAILABLE_REGIONS[@]}] (default: 1): " IDX
+fi
 
-read -rp "Select region [1-${#AVAILABLE_REGIONS[@]}] (default: 1): " IDX
 IDX="${IDX:-1}"
 
 # Validate region selection
