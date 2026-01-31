@@ -75,10 +75,6 @@ fi
 REGION="${AVAILABLE_REGIONS[$((IDX-1))]}"
 echo "✅ Selected region: $REGION"
 
-# -------- APIs --------
-echo "⚙️ Enabling required APIs..."
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com --quiet
-
 # -------- Sanity checks --------
 if ! command -v gcloud >/dev/null 2>&1; then
   echo "❌ gcloud CLI not found. Install and authenticate first."
@@ -90,6 +86,10 @@ if [ -z "${PROJECT:-}" ]; then
   echo "❌ No GCP project set. Run 'gcloud init' or 'gcloud config set project PROJECT_ID'."
   exit 1
 fi
+
+# -------- APIs --------
+echo "⚙️ Enabling required APIs..."
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com --quiet
 
 # -------- Xray Config --------
 if [ "$PROTO" = "trojan" ]; then
@@ -116,6 +116,11 @@ EOF
 )
 fi
 
+# Ensure path begins with '/'
+if [[ "${WSPATH}" != /* ]]; then
+  WSPATH="/${WSPATH}"
+fi
+
 cat > config.json <<EOF
 {
   "inbounds": [{
@@ -138,10 +143,7 @@ cat > config.json <<EOF
 }
 EOF
 
-# Ensure path begins with '/'
-if [[ "${WSPATH}" != /* ]]; then
-  WSPATH="/${WSPATH}"
-fi
+
 
 echo "🚀 Deploying XRAY to Cloud Run..."
 gcloud run deploy "$SERVICE" \

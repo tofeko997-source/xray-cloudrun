@@ -12,6 +12,15 @@ case "$WS_PATH" in
 esac
 
 # generate config
+
+# ensure target directory exists
+mkdir -p /etc/xray
+
+if [ ! -f /config.json.tpl ]; then
+  echo "❌ config.json.tpl not found in image" >&2
+  exit 1
+fi
+
 sed -e "s|__PROTO__|${PROTO}|g" \
     -e "s|__USER_ID__|${USER_ID}|g" \
     -e "s|__WS_PATH__|${WS_PATH}|g" \
