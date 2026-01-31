@@ -200,8 +200,9 @@ DEPLOY_ARGS+=("--quiet")
 gcloud run deploy "$SERVICE" "${DEPLOY_ARGS[@]}"
 
 # -------- Get Service URL --------
-URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format="value(status.url)")
-HOST="${URL#https://}"
+PROJECT=$(gcloud config get-value project 2>/dev/null)
+HOST="${SERVICE}-${PROJECT}.${REGION}.run.app"
+echo "✅ Using primary domain: ${HOST}"
 
 echo ""
 echo "=========================================="
