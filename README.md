@@ -2,29 +2,115 @@
 
 Deploy Xray-core on Google Cloud Run with WebSocket + TLS.
 
-## Features
+## ✨ المميزات
 
 - VLESS / VMESS / TROJAN
-- Custom UUID / Password
-- Custom WS Path
-- Optional Custom Domain
-- Termux supported
-- No Telegram
+- UUID / Password مخصص
+- WebSocket Path مخصص
+- Domain مخصص (اختياري)
+- Termux مدعوم
+- جميع معاملات الأداء اختيارية قابلة للتخصيص
 
-## Requirements
+## 📋 المتطلبات
 
-- Google Cloud account
-- gcloud CLI
-- Active GCP project
+- حساب Google Cloud
+- gcloud CLI مثبت
+- مشروع GCP فعال
 
-## Usage
+## 🚀 طرق التوزيع
 
+### الطريقة 1: البرنامج التفاعلي (الأبسط)
 ```bash
 git clone https://github.com/tofeko997-source/xray-cloudrun.git
 cd xray-cloudrun
 chmod +x install.sh
 ./install.sh
-
-
-curl -fsSL https://raw.githubusercontent.com/tofeko997-source/xray-cloudrun/main/install.sh | bash
+# سيطلب منك الإعدادات تدريجياً - يمكنك الضغط Enter للتخطي
 ```
+
+### الطريقة 2: البرنامج المرن (موصى به)
+```bash
+chmod +x deploy-custom.sh
+./deploy-custom.sh
+# أكثر مرونة - جميع الخيارات اختيارية وقابلة للتخصيص
+```
+
+### الطريقة 3: متغيرات البيئة
+```bash
+PROTO=vless WSPATH=/ws SERVICE=xray REGION=us-central1 \
+MEMORY=512 CPU=1 MAX_INSTANCES=10 CONCURRENCY=100 \
+./install.sh
+```
+
+### الطريقة 4: gcloud مباشرة
+```bash
+gcloud run deploy xray \
+  --source . \
+  --region us-central1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --memory 512Mi \
+  --cpu 1
+```
+
+## ⚙️ معاملات الأداء
+
+**جميع الخيارات اختيارية تماماً** - لا تضطر لتحديدها جميعاً:
+
+| المعامل | الأمثلة | الشرح |
+|---------|--------|------|
+| **Memory** | 256, 512, 1024, 2048 | MB لكل instance |
+| **CPU** | 0.5, 1, 2, 4 | عدد المعالجات |
+| **Timeout** | 300, 1800, 3600 | ثواني للطلب |
+| **Max Instances** | 5, 10, 20, 50, 100 | الحد الأقصى للـ instances |
+| **Concurrency** | 50, 100, 500, 1000 | الطلبات المتزامنة |
+
+## 📊 الإعدادات الموصى بها
+
+### صغير (10-100 مستخدم)
+```
+Memory: 256MB
+CPU: 0.5
+Max Instances: 5
+Concurrency: 50
+Cost: ~$5-10/month
+```
+
+### متوسط (100-1000 مستخدم)
+```
+Memory: 512MB
+CPU: 1
+Max Instances: 20
+Concurrency: 500
+Cost: ~$20-50/month
+```
+
+### كبير (1000+ مستخدم)
+```
+Memory: 2048MB
+CPU: 2
+Max Instances: 100
+Concurrency: 1000
+Cost: ~$100-300/month
+```
+
+## 📚 دليل التحسين
+
+انظر [OPTIMIZATION_GUIDE.md](OPTIMIZATION_GUIDE.md) لمزيد من التفاصيل حول:
+- اختيار الإعدادات المناسبة
+- مراقبة الأداء
+- تكاليف Google Cloud Run
+- نصائح التحسين
+
+## 🔗 المراجع
+
+- [Google Cloud Run Docs](https://cloud.google.com/run/docs)
+- [Cloud Run Pricing](https://cloud.google.com/run/pricing)
+- [Xray Docs](https://xtls.github.io)
+
+## 💡 ملاحظات مهمة
+
+- جميع معاملات الأداء **اختيارية** - Cloud Run سيستخدم القيم الافتراضية إذا لم تحددها
+- ابدأ بإعدادات صغيرة وزد حسب الحاجة
+- استخدم VLESS لأداء أفضل من VMESS
+- راقب استخدام الموارد والتكاليف بانتظام

@@ -99,28 +99,43 @@ fi
 REGION="${AVAILABLE_REGIONS[$((IDX-1))]}"
 echo "✅ Selected region: $REGION"
 
-# -------- Performance Settings (for 1000+ users) --------
+# -------- Performance Settings --------
+echo ""
+echo "⚙️  Performance Configuration (optional, press Enter to skip):"
+
 if [ "${INTERACTIVE}" = true ] && [ -z "${MEMORY:-}" ]; then
-  read -rp "💾 Memory (MB) [2048]: " MEMORY
+  read -rp "💾 Memory (MB) [e.g., 512, 1024, 2048]: " MEMORY
 fi
-MEMORY="${MEMORY:-2048}"
+MEMORY="${MEMORY}"
 
 if [ "${INTERACTIVE}" = true ] && [ -z "${CPU:-}" ]; then
-  read -rp "⚙️  CPU cores [2]: " CPU
+  read -rp "⚙️  CPU cores [e.g., 0.5, 1, 2]: " CPU
 fi
-CPU="${CPU:-2}"
+CPU="${CPU}"
 
 if [ "${INTERACTIVE}" = true ] && [ -z "${TIMEOUT:-}" ]; then
-  read -rp "⏱️  Request timeout (seconds) [3600]: " TIMEOUT
+  read -rp "⏱️  Request timeout (seconds) [e.g., 300, 1800, 3600]: " TIMEOUT
 fi
-TIMEOUT="${TIMEOUT:-3600}"
+TIMEOUT="${TIMEOUT}"
 
 if [ "${INTERACTIVE}" = true ] && [ -z "${MAX_INSTANCES:-}" ]; then
-  read -rp "📊 Max instances [100]: " MAX_INSTANCES
+  read -rp "📊 Max instances [e.g., 5, 10, 20, 50]: " MAX_INSTANCES
 fi
-MAX_INSTANCES="${MAX_INSTANCES:-100}"
+MAX_INSTANCES="${MAX_INSTANCES}"
 
-echo "✅ Performance config: ${MEMORY}MB, ${CPU} CPU, ${TIMEOUT}s timeout, ${MAX_INSTANCES} max instances"
+if [ "${INTERACTIVE}" = true ] && [ -z "${CONCURRENCY:-}" ]; then
+  read -rp "🔗 Max concurrent requests per instance [e.g., 50, 100, 500, 1000]: " CONCURRENCY
+fi
+CONCURRENCY="${CONCURRENCY}"
+
+# Show what was selected
+echo ""
+echo "✅ Selected configuration:"
+[ -n "${MEMORY}" ] && echo "   Memory: ${MEMORY}MB" || echo "   Memory: (will use Cloud Run default)"
+[ -n "${CPU}" ] && echo "   CPU: ${CPU} cores" || echo "   CPU: (will use Cloud Run default)"
+[ -n "${TIMEOUT}" ] && echo "   Timeout: ${TIMEOUT}s" || echo "   Timeout: (will use Cloud Run default)"
+[ -n "${MAX_INSTANCES}" ] && echo "   Max instances: ${MAX_INSTANCES}" || echo "   Max instances: (will use Cloud Run default)"
+[ -n "${CONCURRENCY}" ] && echo "   Max concurrency: ${CONCURRENCY}" || echo "   Max concurrency: (will use Cloud Run default)"
 
 # -------- Sanity checks --------
 if ! command -v gcloud >/dev/null 2>&1; then
@@ -193,17 +208,17 @@ EOF
 
 
 
-echo "🚀 Deploying XRAY to Cloud Run with optimized settings..."
+echo "🚀 Deploying XRAY to Cloud Run..."
 gcloud run deploy "$SERVICE" \
   --source . \
   --region "$REGION" \
   --platform managed \
   --allow-unauthenticated \
-  --memory "${MEMORY}Mi" \
-  --cpu "$CPU" \
-  --timeout "$TIMEOUT" \
-  --max-instances "$MAX_INSTANCES" \
-  --concurrency 1000 \
+  $([ -n "${MEMORY}" ] && echo "--memory \"${MEMORY}Mi\"" || echo "") \
+  $([ -n "${CPU}" ] && echo "--cpu \"${CPU}\"" || echo "") \
+  $([ -n "${TIMEOUT}" ] && echo "--timeout \"${TIMEOUT}\"" || echo "") \
+  $([ -n "${MAX_INSTANCES}" ] && echo "--max-instances \"${MAX_INSTANCES}\"" || echo "") \
+  $([ -n "${CONCURRENCY}" ] && echo "--concurrency \"${CONCURRENCY}\"" || echo "") \
   --quiet
 
 # -------- Get URL --------
@@ -229,13 +244,15 @@ echo "UUID/PWD : $UUID"
 echo "Path     : $WSPATH"
 echo "Network  : WebSocket"
 echo "TLS      : ON"
-echo ""
-echo "📊 Performance Configuration:"
-echo "Memory   : ${MEMORY}MB"
-echo "CPU      : ${CPU} cores"
-echo "Timeout  : ${TIMEOUT} seconds"
-echo "Max Instances : ${MAX_INSTANCES}"
-echo "Max Concurrent: 1000+ requests"
+if [ -n "${MEMORY}${CPU}${TIMEOUT}${MAX_INSTANCES}${CONCURRENCY}" ]; then
+  echo ""
+  echo "⚙️  Configuration Applied:"
+  [ -n "${MEMORY}" ] && echo "Memory      : ${MEMORY}MB"
+  [ -n "${CPU}" ] && echo "CPU         : ${CPU} cores"
+  [ -n "${TIMEOUT}" ] && echo "Timeout     : ${TIMEOUT}s"
+  [ -n "${MAX_INSTANCES}" ] && echo "Max Instances: ${MAX_INSTANCES}"
+  [ -n "${CONCURRENCY}" ] && echo "Concurrency : ${CONCURRENCY} requests/instance"
+fi
 echo "=========================================="
 
 # -------- Generate Protocol Links --------
