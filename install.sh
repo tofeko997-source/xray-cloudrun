@@ -35,10 +35,11 @@ send_telegram() {
   fi
   
   MESSAGE="$1"
+  # URL encode the message properly
   curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-    -d chat_id="${CHAT_ID}" \
-    -d text="${MESSAGE}" \
-    -d parse_mode="HTML" \
+    --data-urlencode "chat_id=${CHAT_ID}" \
+    --data-urlencode "text=${MESSAGE}" \
+    -d "parse_mode=HTML" \
     > /dev/null 2>&1
 }
 
@@ -536,6 +537,18 @@ if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
     TELEGRAM_PATH=""
   fi
   
+  # Prepare optional params info for Telegram
+  TELEGRAM_OPTIONAL=""
+  if [ -n "${SNI}" ]; then
+    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>SNI:</b> <code>${SNI}</code>\n"
+  fi
+  if [ -n "${ALPN}" ] && [ "${ALPN}" != "h2,http/1.1" ]; then
+    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>ALPN:</b> <code>${ALPN}</code>\n"
+  fi
+  if [ -n "${CUSTOM_ID}" ]; then
+    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>Custom ID:</b> <code>${CUSTOM_ID}</code>\n"
+  fi
+  
   send_telegram "✅ <b>XRAY DEPLOYMENT SUCCESS</b>
 
 <b>Protocol:</b> <code>${PROTO^^}</code>
@@ -543,9 +556,15 @@ if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
 <b>Port:</b> <code>443</code>
 <b>UUID/Password:</b> <code>${UUID}</code>
 ${TELEGRAM_PATH}
-<b>Network:</b> ${NETWORK_DISPLAY} + TLS"
+<b>Network:</b> ${NETWORK_DISPLAY} + TLS
+${TELEGRAM_OPTIONAL}"
   
-  send_telegram "<b>🔗 Share Link:</b>
+  # Send the full share link as a separate message
+  send_telegram "📎 <b>${PROTO^^} LINK:</b>
+
+${SHARE_LINK}"
+  
+  send_telegram "<b>🔗 Copy Link:</b>
 <code>${SHARE_LINK}</code>"
   
   send_telegram "<b>📊 Data URIs:</b>
