@@ -1,11 +1,12 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
-	"io/ioutil"
+	"syscall"
 )
 
 func getenv(key, def string) string {
@@ -30,6 +31,7 @@ func main() {
 	user := getenv("USER_ID", getenv("UUID", "changeme"))
 	wspath := getenv("WS_PATH", "/ws")
 	network := getenv("NETWORK", "ws")
+	port := getenv("PORT", "8080")
 
 	// replace placeholders
 	repl := map[string]string{
@@ -37,6 +39,7 @@ func main() {
 		"__USER_ID__": user,
 		"__WS_PATH__": wspath,
 		"__NETWORK__": network,
+		"__PORT__": port,
 	}
 	for k,v := range repl {
 		s = strings.ReplaceAll(s, k, v)
@@ -51,32 +54,23 @@ func main() {
 		log.Fatalf("failed to write config: %v", err)
 	}
 
-	// exec xray
+	// exec xray by replacing the current process
 	path, err := exec.LookPath("xray")
 	if err != nil {
 		log.Fatalf("xray binary not found in PATH: %v", err)
 	}
-
 	args := []string{"xray", "run", "-config", outPath}
 	env := os.Environ()
-	if err := syscallExec(path, args, env); err != nil {
-		log.Fatalf("failed to exec xray: %v", err)
+	// Use syscall.Exec to replace this process; if it fails, fallback to exec.Command
+	if err := syscall.Exec(path, args, env); err != nil {
+		// fallback
+		cmd := exec.Command(path, args[1:]...)
+		cmd.Env = env
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		if err := cmd.Run(); err != nil {
+			log.Fatalf("failed to start xray: %v", err)
+		}
 	}
-}
-
-// syscallExec uses syscall.Exec when available, fallback to exec.Command when not.
-func syscallExec(path string, args, env []string) error {
-	// Try to use syscall.Exec from the syscall package
-	// Use low-level call to replace process; on some platforms syscall.Exec is available.
-	// We'll import syscall here to avoid build issues on non-unix.
-	importSyscall := func() error { return nil }
-	_ = importSyscall
-
-	// Fallback: run command and wait
-	cmd := exec.Command(path, args[1:]...)
-	cmd.Env = env
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
 }

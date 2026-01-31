@@ -4,7 +4,7 @@
   },
   "inbounds": [
     {
-      "port": 8080,
+      "port": __PORT__,
       "listen": "0.0.0.0",
       "protocol": "__PROTO__",
       "settings": {
