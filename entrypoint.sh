@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -eu
 
 PROTO=${PROTO:-vless}
@@ -26,5 +26,14 @@ sed -e "s|__PROTO__|${PROTO}|g" \
     -e "s|__WS_PATH__|${WS_PATH}|g" \
     /config.json.tpl > /etc/xray/config.json
 
-# exec xray from the base image
-exec xray run -config /etc/xray/config.json
+# Start xray in background
+xray run -config /etc/xray/config.json &
+XRAY_PID=$!
+
+# Start simple HTTP health check server on port 8080
+(while true; do
+  { echo -ne "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK"; } | nc -l -p 8080 -q 1 2>/dev/null || true
+done) &
+
+# Wait for xray process
+wait $XRAY_PID

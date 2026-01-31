@@ -1,8 +1,8 @@
 {
   "inbounds": [
     {
-    "port": 8080,
-    "listen": "0.0.0.0",
+      "port": 9000,
+      "listen": "127.0.0.1",
       "protocol": "__PROTO__",
       "settings": {
         "clients": [
@@ -15,7 +15,10 @@
       },
       "streamSettings": {
         "network": "ws",
-        "security": "none",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "__SNI__"
+        },
         "wsSettings": {
           "path": "__WS_PATH__"
         }
