@@ -7,11 +7,15 @@ echo "=========================================="
 
 # -------- Protocol --------
 read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO
+# Remove leading/trailing whitespace and convert to lowercase
+PROTO="${PROTO## }"
+PROTO="${PROTO%% }"
 PROTO="${PROTO,,}"
 PROTO="${PROTO:-vless}"
 
+# Validate protocol
 if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
-  echo "❌ Invalid protocol"
+  echo "❌ Invalid protocol: '$PROTO'"
   exit 1
 fi
 
