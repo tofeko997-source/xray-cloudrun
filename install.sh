@@ -110,6 +110,22 @@ if [ "${INTERACTIVE}" = true ] && [ -z "${SERVICE:-}" ]; then
 fi
 SERVICE="${SERVICE:-xray-ws}"
 
+# -------- Optional Link Parameters --------
+if [ "${INTERACTIVE}" = true ] && [ -z "${SNI:-}" ]; then
+  read -rp "🔒 SNI (Server Name Indication, optional): " SNI
+fi
+SNI="${SNI:-}"
+
+if [ "${INTERACTIVE}" = true ] && [ -z "${ALPN:-}" ]; then
+  read -rp "📡 ALPN (Application Layer Protocol, default: h2,http/1.1): " ALPN
+fi
+ALPN="${ALPN:-h2,http/1.1}"
+
+if [ "${INTERACTIVE}" = true ] && [ -z "${CUSTOM_ID:-}" ]; then
+  read -rp "🏷️  Custom Identifier for Link (e.g., S103, optional): " CUSTOM_ID
+fi
+CUSTOM_ID="${CUSTOM_ID:-}"
+
 # -------- UUID --------
 UUID=$(cat /proc/sys/kernel/random/uuid)
 
@@ -335,14 +351,38 @@ echo "=========================================="
 # Build query parameters based on network type
 if [ "$NETWORK" = "ws" ]; then
   QUERY_PARAMS="type=ws&security=tls&path=${WSPATH}"
+  if [ -n "${SNI}" ]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&sni=${SNI}"
+  fi
+  if [ -n "${ALPN}" ]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&alpn=${ALPN}"
+  fi
 elif [ "$NETWORK" = "tcp" ]; then
-  QUERY_PARAMS="type=tcp&security=tls"
+  QUERY_PARAMS="type=tcp&security=tls&headerType=none"
+  if [ -n "${SNI}" ]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&sni=${SNI}"
+  fi
+  if [ -n "${ALPN}" ]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&alpn=${ALPN}"
+  fi
 elif [ "$NETWORK" = "grpc" ]; then
   QUERY_PARAMS="type=grpc&security=tls&serviceName=${WSPATH}"
+  if [ -n "${SNI}" ]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&sni=${SNI}"
+  fi
+  if [ -n "${ALPN}" ]; then
+    QUERY_PARAMS="${QUERY_PARAMS}&alpn=${ALPN}"
+  fi
+fi
+
+# Build fragment with custom ID
+LINK_FRAGMENT="xray"
+if [ -n "${CUSTOM_ID}" ]; then
+  LINK_FRAGMENT="(${CUSTOM_ID})t.me"
 fi
 
 if [ "$PROTO" = "vless" ]; then
-  VLESS_LINK="vless://${UUID}@${HOST}:443?${QUERY_PARAMS}#xray"
+  VLESS_LINK="vless://${UUID}@${HOST}:443?${QUERY_PARAMS}#${LINK_FRAGMENT}"
   echo ""
   echo "📎 VLESS LINK:"
   echo "$VLESS_LINK"
@@ -364,13 +404,19 @@ elif [ "$PROTO" = "vmess" ]; then
 }
 EOF
 )
+  if [ -n "${SNI}" ]; then
+    VMESS_JSON=$(echo "$VMESS_JSON" | sed "s/}/,\"sni\":\"${SNI}\"}/")
+  fi
+  if [ -n "${ALPN}" ]; then
+    VMESS_JSON=$(echo "$VMESS_JSON" | sed "s/}/,\"alpn\":\"${ALPN}\"}/")
+  fi
   VMESS_LINK="vmess://$(echo "$VMESS_JSON" | base64 -w 0)"
   echo ""
   echo "📎 VMESS LINK:"
   echo "$VMESS_LINK"
   SHARE_LINK="$VMESS_LINK"
 elif [ "$PROTO" = "trojan" ]; then
-  TROJAN_LINK="trojan://${UUID}@${HOST}:443?${QUERY_PARAMS}#xray"
+  TROJAN_LINK="trojan://${UUID}@${HOST}:443?${QUERY_PARAMS}#${LINK_FRAGMENT}"
   echo ""
   echo "📎 TROJAN LINK:"
   echo "$TROJAN_LINK"
@@ -390,6 +436,18 @@ elif [ "$NETWORK" = "grpc" ]; then
   PATH_INFO="Service: ${WSPATH}"
 fi
 
+# Prepare optional params info
+OPTIONAL_INFO=""
+if [ -n "${SNI}" ]; then
+  OPTIONAL_INFO="${OPTIONAL_INFO}SNI: ${SNI}\n"
+fi
+if [ -n "${ALPN}" ] && [ "${ALPN}" != "h2,http/1.1" ]; then
+  OPTIONAL_INFO="${OPTIONAL_INFO}ALPN: ${ALPN}\n"
+fi
+if [ -n "${CUSTOM_ID}" ]; then
+  OPTIONAL_INFO="${OPTIONAL_INFO}Custom ID: ${CUSTOM_ID}\n"
+fi
+
 # Data URI 1: Plain text configuration
 CONFIG_TEXT="✅ XRAY DEPLOYMENT SUCCESS
 
@@ -398,7 +456,8 @@ Host: ${HOST}
 Port: 443
 UUID/Password: ${UUID}
 ${PATH_INFO}
-Network: ${NETWORK_DISPLAY} + TLS"
+Network: ${NETWORK_DISPLAY} + TLS
+${OPTIONAL_INFO}Share Link: ${SHARE_LINK}"
 
 DATA_URI_TEXT="data:text/plain;base64,$(echo -n "$CONFIG_TEXT" | base64 -w 0)"
 echo "📋 Data URI (Text):"
@@ -417,6 +476,9 @@ if [ "$NETWORK" = "ws" ]; then
   "network": "${NETWORK}",
   "network_display": "${NETWORK_DISPLAY}",
   "tls": true,
+  "sni": "${SNI}",
+  "alpn": "${ALPN}",
+  "custom_id": "${CUSTOM_ID}",
   "share_link": "${SHARE_LINK}"
 }
 EOF
@@ -432,6 +494,9 @@ elif [ "$NETWORK" = "grpc" ]; then
   "network": "${NETWORK}",
   "network_display": "${NETWORK_DISPLAY}",
   "tls": true,
+  "sni": "${SNI}",
+  "alpn": "${ALPN}",
+  "custom_id": "${CUSTOM_ID}",
   "share_link": "${SHARE_LINK}"
 }
 EOF
@@ -446,6 +511,9 @@ else
   "network": "${NETWORK}",
   "network_display": "${NETWORK_DISPLAY}",
   "tls": true,
+  "sni": "${SNI}",
+  "alpn": "${ALPN}",
+  "custom_id": "${CUSTOM_ID}",
   "share_link": "${SHARE_LINK}"
 }
 EOF
