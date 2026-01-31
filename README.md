@@ -3,6 +3,7 @@
 Deploy Xray-core on Google Cloud Run with WebSocket + TLS.
 
 ## Features
+
 - VLESS / VMESS / TROJAN
 - Custom UUID / Password
 - Custom WS Path
@@ -11,6 +12,7 @@ Deploy Xray-core on Google Cloud Run with WebSocket + TLS.
 - No Telegram
 
 ## Requirements
+
 - Google Cloud account
 - gcloud CLI
 - Active GCP project
@@ -18,10 +20,11 @@ Deploy Xray-core on Google Cloud Run with WebSocket + TLS.
 ## Usage
 
 ```bash
-git clone https://github.com/youyoulofi1-alt/xray-cloudrun.git
+git clone https://github.com/tofeko997-source/xray-cloudrun.git
 cd xray-cloudrun
 chmod +x install.sh
 ./install.sh
 
 
 curl -fsSL https://raw.githubusercontent.com/tofeko997-source/xray-cloudrun/main/install.sh | bash
+```
