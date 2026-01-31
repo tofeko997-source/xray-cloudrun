@@ -209,92 +209,6 @@ fi
 echo "⚙️ Enabling required APIs..."
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com --quiet
 
-# -------- Xray Config --------
-if [ "$PROTO" = "trojan" ]; then
-  CLIENT_CONFIG=$(cat <<EOF
-"clients": [{
-  "password": "$UUID"
-}]
-EOF
-)
-elif [ "$PROTO" = "vless" ]; then
-  CLIENT_CONFIG=$(cat <<EOF
-"clients": [{
-  "id": "$UUID"
-}],
-"decryption": "none"
-EOF
-)
-else # vmess
-  CLIENT_CONFIG=$(cat <<EOF
-"clients": [{
-  "id": "$UUID"
-}]
-EOF
-)
-fi
-
-# Ensure path begins with '/' for WebSocket
-if [ "$NETWORK" = "ws" ] && [[ "${WSPATH}" != /* ]]; then
-  WSPATH="/${WSPATH}"
-fi
-
-# Build streamSettings based on network type
-if [ "$NETWORK" = "ws" ]; then
-  STREAM_SETTINGS=$(cat <<'EOF'
-      "network": "ws",
-      "security": "tls",
-      "wsSettings": {
-        "path": "$WSPATH"
-      }
-EOF
-)
-elif [ "$NETWORK" = "tcp" ]; then
-  STREAM_SETTINGS=$(cat <<'EOF'
-      "network": "tcp",
-      "security": "tls",
-      "tcpSettings": {
-        "header": {
-          "type": "none"
-        }
-      }
-EOF
-)
-elif [ "$NETWORK" = "grpc" ]; then
-  STREAM_SETTINGS=$(cat <<'EOF'
-      "network": "grpc",
-      "security": "tls",
-      "grpcSettings": {
-        "serviceName": "$WSPATH"
-      }
-EOF
-)
-fi
-
-# Replace $WSPATH in stream settings
-STREAM_SETTINGS="${STREAM_SETTINGS//\$WSPATH/$WSPATH}"
-
-cat > config.json <<EOF
-{
-  "inbounds": [{
-    "port": 8080,
-    "listen": "0.0.0.0",
-    "protocol": "$PROTO",
-    "settings": {
-      $CLIENT_CONFIG
-    },
-    "streamSettings": {
-      $STREAM_SETTINGS
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom"
-  }]
-}
-EOF
-
-
-
 echo "🚀 Deploying XRAY to Cloud Run..."
 
 # Build deploy command with optional parameters
@@ -311,6 +225,7 @@ DEPLOY_ARGS=(
 [ -n "${MAX_INSTANCES}" ] && DEPLOY_ARGS+=("--max-instances" "${MAX_INSTANCES}")
 [ -n "${CONCURRENCY}" ] && DEPLOY_ARGS+=("--concurrency" "${CONCURRENCY}")
 
+DEPLOY_ARGS+=("--set-env-vars" "PROTO=${PROTO},USER_ID=${UUID},WS_PATH=${WSPATH},NETWORK=${NETWORK}")
 DEPLOY_ARGS+=("--quiet")
 
 gcloud run deploy "$SERVICE" "${DEPLOY_ARGS[@]}"

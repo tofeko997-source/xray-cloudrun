@@ -1,7 +1,10 @@
 {
+  "log": {
+    "loglevel": "warning"
+  },
   "inbounds": [
     {
-      "port": 9000,
+      "port": 8080,
       "listen": "0.0.0.0",
       "protocol": "__PROTO__",
       "settings": {
@@ -14,17 +17,26 @@
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "ws",
+        "network": "__NETWORK__",
         "security": "none",
+        "tcpSettings": {
+          "header": {
+            "type": "none"
+          }
+        },
         "wsSettings": {
           "path": "__WS_PATH__"
+        },
+        "grpcSettings": {
+          "serviceName": "__WS_PATH__"
         }
       }
     }
   ],
   "outbounds": [
     {
-      "protocol": "freedom"
+      "protocol": "freedom",
+      "settings": {}
     }
   ]
 }

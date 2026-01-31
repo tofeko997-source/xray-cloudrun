@@ -1,12 +1,14 @@
 FROM ghcr.io/xtls/xray-core:latest
 
-# Copy template and entrypoint
+# Copy configuration template and entrypoint
 COPY config.json.tpl /config.json.tpl
 COPY entrypoint.sh /entrypoint.sh
+
+# Make entrypoint executable
 RUN chmod +x /entrypoint.sh
 
-# Expose ports
-EXPOSE 8080 9000
+# Expose the port Cloud Run uses
+EXPOSE 8080
 
-# Run entrypoint
+# Use entrypoint to start xray
 ENTRYPOINT ["/entrypoint.sh"]
