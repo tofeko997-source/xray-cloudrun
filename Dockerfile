@@ -1,14 +1,22 @@
+FROM golang:1.20-bullseye AS builder
+
+WORKDIR /src
+
+# Copy only the template and the generator source to build a static binary
+COPY config.json.tpl /src/config.json.tpl
+COPY main.go /src/main.go
+COPY go.mod /src/go.mod
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags='-s -w' -o /configgen /src/main.go
+
 FROM ghcr.io/xtls/xray-core:latest
 
-# Copy configuration template and entrypoint
+# Copy the generated static binary and the template into the final image
+COPY --from=builder /configgen /configgen
 COPY config.json.tpl /config.json.tpl
-COPY entrypoint.sh /entrypoint.sh
 
-# Make entrypoint executable
-RUN chmod +x /entrypoint.sh
-
-# Expose the port Cloud Run uses
+# Ensure xray config dir exists and expose the Cloud Run port
 EXPOSE 8080
 
-# Use entrypoint to start xray
-ENTRYPOINT ["/entrypoint.sh"]
+# Run the config generator which will write /etc/xray/config.json and exec xray
+ENTRYPOINT ["/configgen"]
