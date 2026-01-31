@@ -17,6 +17,31 @@ echo "=========================================="
 echo "  XRAY Cloud Run (VLESS / VMESS / TROJAN)"
 echo "=========================================="
 
+# -------- Telegram Bot --------
+if [ "${INTERACTIVE}" = true ] && [ -z "${BOT_TOKEN:-}" ]; then
+  read -rp "🤖 Telegram Bot Token (optional, press Enter to skip): " BOT_TOKEN
+fi
+BOT_TOKEN="${BOT_TOKEN:-}"
+
+if [ "${INTERACTIVE}" = true ] && [ -z "${CHAT_ID:-}" ] && [ -n "${BOT_TOKEN}" ]; then
+  read -rp "💬 Telegram Chat ID (optional): " CHAT_ID
+fi
+CHAT_ID="${CHAT_ID:-}"
+
+# Telegram send function
+send_telegram() {
+  if [ -z "${BOT_TOKEN}" ] || [ -z "${CHAT_ID}" ]; then
+    return 0
+  fi
+  
+  MESSAGE="$1"
+  curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+    -d chat_id="${CHAT_ID}" \
+    -d text="${MESSAGE}" \
+    -d parse_mode="HTML" \
+    > /dev/null 2>&1
+}
+
 # -------- Protocol --------
 if [ "${INTERACTIVE}" = true ] && [ -z "${PROTO:-}" ]; then
   read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO
@@ -37,9 +62,8 @@ fi
 WSPATH="${WSPATH:-/ws}"
 
 # -------- Domain --------
-if [ "${INTERACTIVE}" = true ] && [ -z "${DOMAIN:-}" ]; then
-  read -rp "🌐 Custom Domain (empty = use Cloud Run URL): " DOMAIN
-fi
+# Always use Cloud Run default URL
+DOMAIN=""
 
 # -------- Service Name --------
 if [ "${INTERACTIVE}" = true ] && [ -z "${SERVICE:-}" ]; then
@@ -198,4 +222,29 @@ EOF
   echo ""
   echo "📎 VMESS LINK:"
   echo "$VMESS_LINK"
+fi
+
+# -------- Send to Telegram --------
+if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
+  send_telegram "✅ <b>XRAY DEPLOYMENT SUCCESS</b>
+
+<b>Protocol:</b> <code>${PROTO^^}</code>
+<b>Host:</b> <code>${HOST}</code>
+<b>Port:</b> <code>443</code>
+<b>UUID/Password:</b> <code>${UUID}</code>
+<b>Path:</b> <code>${WSPATH}</code>
+<b>Network:</b> WebSocket + TLS"
+  
+  if [ "$PROTO" = "vless" ]; then
+    VLESS_LINK="vless://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
+    send_telegram "<b>🔗 VLESS Link:</b>
+<code>${VLESS_LINK}</code>"
+  elif [ "$PROTO" = "vmess" ]; then
+    send_telegram "<b>🔗 VMESS Link:</b>
+<code>${VMESS_LINK}</code>"
+  elif [ "$PROTO" = "trojan" ]; then
+    TROJAN_LINK="trojan://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
+    send_telegram "<b>🔗 TROJAN Link:</b>
+<code>${TROJAN_LINK}</code>"
+  fi
 fi
