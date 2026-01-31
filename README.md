@@ -24,4 +24,4 @@ chmod +x install.sh
 ./install.sh
 
 
-curl -fsSL https://raw.githubusercontent.com/youyoulofi1-alt/xray-cloudrun/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tofeko997-source/xray-cloudrun/main/install.sh | bash
