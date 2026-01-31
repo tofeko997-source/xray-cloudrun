@@ -209,17 +209,24 @@ EOF
 
 
 echo "🚀 Deploying XRAY to Cloud Run..."
-gcloud run deploy "$SERVICE" \
-  --source . \
-  --region "$REGION" \
-  --platform managed \
-  --allow-unauthenticated \
-  $([ -n "${MEMORY}" ] && echo "--memory \"${MEMORY}Mi\"" || echo "") \
-  $([ -n "${CPU}" ] && echo "--cpu \"${CPU}\"" || echo "") \
-  $([ -n "${TIMEOUT}" ] && echo "--timeout \"${TIMEOUT}\"" || echo "") \
-  $([ -n "${MAX_INSTANCES}" ] && echo "--max-instances \"${MAX_INSTANCES}\"" || echo "") \
-  $([ -n "${CONCURRENCY}" ] && echo "--concurrency \"${CONCURRENCY}\"" || echo "") \
-  --quiet
+
+# Build deploy command with optional parameters
+DEPLOY_ARGS=(
+  "--source" "."
+  "--region" "$REGION"
+  "--platform" "managed"
+  "--allow-unauthenticated"
+)
+
+[ -n "${MEMORY}" ] && DEPLOY_ARGS+=("--memory" "${MEMORY}Mi")
+[ -n "${CPU}" ] && DEPLOY_ARGS+=("--cpu" "${CPU}")
+[ -n "${TIMEOUT}" ] && DEPLOY_ARGS+=("--timeout" "${TIMEOUT}")
+[ -n "${MAX_INSTANCES}" ] && DEPLOY_ARGS+=("--max-instances" "${MAX_INSTANCES}")
+[ -n "${CONCURRENCY}" ] && DEPLOY_ARGS+=("--concurrency" "${CONCURRENCY}")
+
+DEPLOY_ARGS+=("--quiet")
+
+gcloud run deploy "$SERVICE" "${DEPLOY_ARGS[@]}"
 
 # -------- Get URL --------
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format="value(status.url)")

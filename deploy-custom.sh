@@ -180,32 +180,24 @@ echo "✅ Generated config.json"
 echo ""
 echo "🚀 Deploying to Cloud Run..."
 
-DEPLOY_CMD="gcloud run deploy \"$SERVICE\" \\
-  --source . \\
-  --region \"$REGION\" \\
-  --platform managed \\
-  --allow-unauthenticated"
+# Build deploy command with optional parameters
+DEPLOY_ARGS=(
+  "--source" "."
+  "--region" "$REGION"
+  "--platform" "managed"
+  "--allow-unauthenticated"
+)
 
-[ -n "${MEMORY}" ] && DEPLOY_CMD="$DEPLOY_CMD \\
-  --memory \"${MEMORY}Mi\""
+[ -n "${MEMORY}" ] && DEPLOY_ARGS+=("--memory" "${MEMORY}Mi")
+[ -n "${CPU}" ] && DEPLOY_ARGS+=("--cpu" "${CPU}")
+[ -n "${TIMEOUT}" ] && DEPLOY_ARGS+=("--timeout" "${TIMEOUT}")
+[ -n "${MAX_INSTANCES}" ] && DEPLOY_ARGS+=("--max-instances" "${MAX_INSTANCES}")
+[ -n "${CONCURRENCY}" ] && DEPLOY_ARGS+=("--concurrency" "${CONCURRENCY}")
 
-[ -n "${CPU}" ] && DEPLOY_CMD="$DEPLOY_CMD \\
-  --cpu \"${CPU}\""
-
-[ -n "${TIMEOUT}" ] && DEPLOY_CMD="$DEPLOY_CMD \\
-  --timeout \"${TIMEOUT}\""
-
-[ -n "${MAX_INSTANCES}" ] && DEPLOY_CMD="$DEPLOY_CMD \\
-  --max-instances \"${MAX_INSTANCES}\""
-
-[ -n "${CONCURRENCY}" ] && DEPLOY_CMD="$DEPLOY_CMD \\
-  --concurrency \"${CONCURRENCY}\""
-
-DEPLOY_CMD="$DEPLOY_CMD \\
-  --quiet"
+DEPLOY_ARGS+=("--quiet")
 
 # Execute deploy
-eval "$DEPLOY_CMD"
+gcloud run deploy "$SERVICE" "${DEPLOY_ARGS[@]}"
 
 # -------- Get Service URL --------
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format="value(status.url)")
