@@ -1,11 +1,7 @@
 FROM ghcr.io/xtls/xray-core:latest
 
-ENV PROTO=vless
-ENV USER_ID=changeme
-ENV WS_PATH=/ws
+# Use the generated config.json (created by install.sh) if present in build context
+COPY config.json /etc/xray/config.json
 
-COPY config.json.tpl /config.json.tpl
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Run xray directly (no shell required in distroless image)
+CMD ["xray", "run", "-config", "/etc/xray/config.json"]
