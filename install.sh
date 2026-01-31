@@ -33,27 +33,10 @@ SERVICE="${SERVICE:-xray-ws}"
 # -------- UUID --------
 UUID=$(cat /proc/sys/kernel/random/uuid)
 
-# -------- Region Detect --------
+# -------- Region Select --------
 echo ""
-echo "🔍 Detecting available Cloud Run regions..."
+AVAILABLE_REGIONS=("us-central1" "us-east1" "us-west1" "us-south1" "europe-west1" "europe-west4" "asia-east1" "asia-northeast1" "asia-southeast1")
 
-# Default regions list
-AVAILABLE_REGIONS=("us-central1" "us-east1" "us-west1" "europe-west1" "asia-east1" "asia-northeast1")
-
-# Try to get actual regions with timeout
-if timeout 5 gcloud run regions list --format="value(name)" &>/dev/null; then
-  DETECTED=$(timeout 5 gcloud run regions list --format="value(name)" 2>/dev/null)
-  if [ ! -z "$DETECTED" ]; then
-    AVAILABLE_REGIONS=($DETECTED)
-    echo "✅ Regions detected successfully"
-  else
-    echo "⚠️ Using default regions (detection timed out)"
-  fi
-else
-  echo "⚠️ Using default regions (gcloud timeout)"
-fi
-
-echo ""
 echo "🌍 Available regions:"
 i=1
 for r in "${AVAILABLE_REGIONS[@]}"; do
@@ -61,13 +44,16 @@ for r in "${AVAILABLE_REGIONS[@]}"; do
   ((i++))
 done
 
-read -rp "Select region [1-${#AVAILABLE_REGIONS[@]}]: " IDX < /dev/tty
+read -rp "Select region [1-${#AVAILABLE_REGIONS[@]}] (default: 1): " IDX < /dev/tty
+IDX="${IDX:-1}"
+
 # Validate region selection
 if [[ ! "$IDX" =~ ^[0-9]+$ ]] || [ "$IDX" -lt 1 ] || [ "$IDX" -gt ${#AVAILABLE_REGIONS[@]} ]; then
   echo "❌ Invalid region selection"
   exit 1
 fi
 REGION="${AVAILABLE_REGIONS[$((IDX-1))]}"
+echo "✅ Selected region: $REGION"
 
 # -------- APIs --------
 echo "⚙️ Enabling required APIs..."
