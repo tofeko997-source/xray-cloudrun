@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# Open /dev/tty for interactive input when piped
-exec < /dev/tty
+# If stdin is not a terminal (script piped), open /dev/tty for interactive input
+if [ ! -t 0 ]; then
+  exec </dev/tty
+fi
 
 echo "=========================================="
 echo "  XRAY Cloud Run (VLESS / VMESS / TROJAN)"
@@ -24,7 +26,7 @@ read -rp "📡 WebSocket Path (default: /ws): " WSPATH
 WSPATH="${WSPATH:-/ws}"
 
 # -------- Domain --------
-read -rp "🌐 Custom Domain (empty = run.app): " DOMAIN
+read -rp "🌐 Custom Domain (empty = use Cloud Run URL): " DOMAIN
 
 # -------- Service Name --------
 read -rp "🪪 Service Name (default: xray-ws): " SERVICE
@@ -48,9 +50,6 @@ read -rp "Select region [1-${#AVAILABLE_REGIONS[@]}] (default: 1): " IDX
 IDX="${IDX:-1}"
 
 # Validate region selection
-read -rp "Select region [1-${#AVAILABLE_REGIONS[@]}] (default: 1): " IDX
-IDX="${IDX:-1}"
-
 if [[ ! "$IDX" =~ ^[0-9]+$ ]] || [ "$IDX" -lt 1 ] || [ "$IDX" -gt ${#AVAILABLE_REGIONS[@]} ]; then
   echo "❌ Invalid region selection"
   exit 1
@@ -63,12 +62,17 @@ echo "✅ Selected region: $REGION"
 echo "⚙️ Enabling required APIs..."
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com --quiet
 
-# -------- Dockerfile --------
-cat > Dockerfile <<EOF
-FROM ghcr.io/xtls/xray-core:latest
-COPY config.json /etc/xray/config.json
-CMD ["xray", "run", "-config", "/etc/xray/config.json"]
-EOF
+# -------- Sanity checks --------
+if ! command -v gcloud >/dev/null 2>&1; then
+  echo "❌ gcloud CLI not found. Install and authenticate first."
+  exit 1
+fi
+
+PROJECT=$(gcloud config get-value project 2>/dev/null || true)
+if [ -z "${PROJECT:-}" ]; then
+  echo "❌ No GCP project set. Run 'gcloud init' or 'gcloud config set project PROJECT_ID'."
+  exit 1
+fi
 
 # -------- Xray Config --------
 if [ "$PROTO" = "trojan" ]; then
@@ -117,7 +121,11 @@ cat > config.json <<EOF
 }
 EOF
 
-# -------- Deploy --------
+# Ensure path begins with '/'
+if [[ "${WSPATH}" != /* ]]; then
+  WSPATH="/${WSPATH}"
+fi
+
 echo "🚀 Deploying XRAY to Cloud Run..."
 gcloud run deploy "$SERVICE" \
   --source . \
@@ -129,7 +137,11 @@ gcloud run deploy "$SERVICE" \
 # -------- Get URL --------
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format="value(status.url)")
 
-HOST=${DOMAIN:-${URL#https://}}
+if [ -n "${DOMAIN}" ]; then
+  HOST="$DOMAIN"
+else
+  HOST="${URL#https://}"
+fi
 
 # -------- Output --------
 echo "=========================================="
