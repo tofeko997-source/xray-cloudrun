@@ -180,12 +180,15 @@ gcloud run deploy "$SERVICE" \
 
 # -------- Get URL --------
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format="value(status.url)")
+echo "Service URL: $URL"
 
 if [ -n "${DOMAIN}" ]; then
   HOST="$DOMAIN"
 else
   HOST="${URL#https://}"
 fi
+
+echo "HOST extracted: $HOST"
 
 # -------- Output --------
 echo "=========================================="
@@ -200,7 +203,14 @@ echo "Network  : WebSocket"
 echo "TLS      : ON"
 echo "=========================================="
 
-if [ "$PROTO" = "vmess" ]; then
+# -------- Generate Protocol Links --------
+if [ "$PROTO" = "vless" ]; then
+  VLESS_LINK="vless://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
+  echo ""
+  echo "📎 VLESS LINK:"
+  echo "$VLESS_LINK"
+  SHARE_LINK="$VLESS_LINK"
+elif [ "$PROTO" = "vmess" ]; then
   VMESS_JSON=$(cat <<EOF
 {
   "v": "2",
@@ -217,11 +227,17 @@ if [ "$PROTO" = "vmess" ]; then
 }
 EOF
 )
-
   VMESS_LINK="vmess://$(echo "$VMESS_JSON" | base64 -w 0)"
   echo ""
   echo "📎 VMESS LINK:"
   echo "$VMESS_LINK"
+  SHARE_LINK="$VMESS_LINK"
+elif [ "$PROTO" = "trojan" ]; then
+  TROJAN_LINK="trojan://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
+  echo ""
+  echo "📎 TROJAN LINK:"
+  echo "$TROJAN_LINK"
+  SHARE_LINK="$TROJAN_LINK"
 fi
 
 # -------- Send to Telegram --------
@@ -235,16 +251,6 @@ if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
 <b>Path:</b> <code>${WSPATH}</code>
 <b>Network:</b> WebSocket + TLS"
   
-  if [ "$PROTO" = "vless" ]; then
-    VLESS_LINK="vless://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
-    send_telegram "<b>🔗 VLESS Link:</b>
-<code>${VLESS_LINK}</code>"
-  elif [ "$PROTO" = "vmess" ]; then
-    send_telegram "<b>🔗 VMESS Link:</b>
-<code>${VMESS_LINK}</code>"
-  elif [ "$PROTO" = "trojan" ]; then
-    TROJAN_LINK="trojan://${UUID}@${HOST}:443?type=ws&security=tls&path=${WSPATH}#xray"
-    send_telegram "<b>🔗 TROJAN Link:</b>
-<code>${TROJAN_LINK}</code>"
-  fi
+  send_telegram "<b>🔗 Share Link:</b>
+<code>${SHARE_LINK}</code>"
 fi
