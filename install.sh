@@ -44,17 +44,31 @@ send_telegram() {
 }
 
 # -------- Protocol --------
-if [ "${INTERACTIVE}" = true ] && [ -z "${PROTO:-}" ]; then
-  read -rp "🔐 Choose Protocol (vless/vmess/trojan) [vless]: " PROTO
+if [ "${INTERACTIVE}" = true ] && [ -z "${PROTO_CHOICE:-}" ]; then
+  echo ""
+  echo "🔐 Choose Protocol:"
+  echo "1) VLESS"
+  echo "2) VMESS"
+  echo "3) TROJAN"
+  read -rp "Select protocol [1-3] (default: 1): " PROTO_CHOICE
 fi
-PROTO="${PROTO:-vless}"
-PROTO="${PROTO,,}"
+PROTO_CHOICE="${PROTO_CHOICE:-1}"
 
-# Validate protocol
-if [[ ! "$PROTO" =~ ^(vless|vmess|trojan)$ ]]; then
-  echo "❌ Invalid protocol: '$PROTO'"
-  exit 1
-fi
+case "$PROTO_CHOICE" in
+  1)
+    PROTO="vless"
+    ;;
+  2)
+    PROTO="vmess"
+    ;;
+  3)
+    PROTO="trojan"
+    ;;
+  *)
+    echo "❌ Invalid protocol selection"
+    exit 1
+    ;;
+esac
 
 # -------- Network Type --------
 if [ "${INTERACTIVE}" = true ] && [ -z "${NETWORK:-}" ]; then
@@ -124,15 +138,65 @@ if ! [[ "$SERVICE" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]; then
 fi
 
 # -------- Optional Link Parameters --------
-if [ "${INTERACTIVE}" = true ] && [ -z "${SNI:-}" ]; then
-  read -rp "🔒 SNI (Server Name Indication, optional): " SNI
+if [ "${INTERACTIVE}" = true ] && [ -z "${SNI_CHOICE:-}" ]; then
+  echo ""
+  echo "🔒 SNI (Server Name Indication):"
+  echo "1) m.youtube.com"
+  echo "2) www.google.com"
+  echo "3) www.bing.com"
+  echo "4) Leave blank (no SNI)"
+  read -rp "Select SNI or custom [1-4] (default: 4): " SNI_CHOICE
 fi
-SNI="${SNI:-}"
+SNI_CHOICE="${SNI_CHOICE:-4}"
 
+case "$SNI_CHOICE" in
+  1)
+    SNI="m.youtube.com"
+    ;;
+  2)
+    SNI="www.google.com"
+    ;;
+  3)
+    SNI="www.facebook.com"
+    ;;
+  4)
+    SNI=""
+    ;;
+  *)
+    SNI="$SNI_CHOICE"
+    ;;
+esac
+
+# -------- ALPN --------
 if [ "${INTERACTIVE}" = true ] && [ -z "${ALPN:-}" ]; then
-  read -rp "📡 ALPN (Application Layer Protocol, default: h2,http/1.1): " ALPN
+  echo ""
+  echo "📡 Choose ALPN (Application Layer Protocol):"
+  echo "1) default"
+  echo "2) h2,http/1.1"
+  echo "3) h2"
+  echo "4) http/1.1"
+  read -rp "Select ALPN [1-4] (default: 1): " ALPN_CHOICE
 fi
-ALPN="${ALPN:-h2,http/1.1}"
+ALPN_CHOICE="${ALPN_CHOICE:-1}"
+
+case "$ALPN_CHOICE" in
+  1)
+    ALPN="default"
+    ;;
+  2)
+    ALPN="h2,http/1.1"
+    ;;
+  3)
+    ALPN="h2"
+    ;;
+  4)
+    ALPN="http/1.1"
+    ;;
+  *)
+    echo "❌ Invalid ALPN selection"
+    exit 1
+    ;;
+esac
 
 if [ "${INTERACTIVE}" = true ] && [ -z "${CUSTOM_ID:-}" ]; then
   read -rp "🏷️  Custom Identifier for Link (e.g., S103, optional): " CUSTOM_ID
@@ -314,7 +378,7 @@ fi
 # Build fragment with custom ID
 LINK_FRAGMENT="xray"
 if [ -n "${CUSTOM_ID}" ]; then
-  LINK_FRAGMENT="(${CUSTOM_ID})t.me"
+  LINK_FRAGMENT="(${CUSTOM_ID})"
 fi
 
 if [ "$PROTO" = "vless" ]; then
@@ -463,50 +527,7 @@ echo "=========================================="
 
 # -------- Send to Telegram --------
 if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
-  # Build the main message with path/service info
-  if [ "$NETWORK" = "ws" ]; then
-    TELEGRAM_PATH="<b>Path:</b> <code>${WSPATH}</code>"
-  elif [ "$NETWORK" = "grpc" ]; then
-    TELEGRAM_PATH="<b>Service:</b> <code>${WSPATH}</code>"
-  else
-    TELEGRAM_PATH=""
-  fi
-  
-  # Prepare optional params info for Telegram
-  TELEGRAM_OPTIONAL=""
-  if [ -n "${SNI}" ]; then
-    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>SNI:</b> <code>${SNI}</code>\n"
-  fi
-  if [ -n "${ALPN}" ] && [ "${ALPN}" != "h2,http/1.1" ]; then
-    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>ALPN:</b> <code>${ALPN}</code>\n"
-  fi
-  if [ -n "${CUSTOM_ID}" ]; then
-    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>Custom ID:</b> <code>${CUSTOM_ID}</code>\n"
-  fi
-  
-  send_telegram "✅ <b>XRAY DEPLOYMENT SUCCESS</b>
-
-<b>Protocol:</b> <code>${PROTO^^}</code>
-<b>Host:</b> <code>${HOST}</code>
-<b>Port:</b> <code>443</code>
-<b>UUID/Password:</b> <code>${UUID}</code>
-${TELEGRAM_PATH}
-<b>Network:</b> ${NETWORK_DISPLAY} + TLS
-${TELEGRAM_OPTIONAL}"
-  
-  # Send the full share link as a separate message
-  send_telegram "📎 <b>${PROTO^^} LINK:</b>
-
-${SHARE_LINK}"
-  
+  # Send only the copy link
   send_telegram "<b>🔗 Copy Link:</b>
 <code>${SHARE_LINK}</code>"
-  
-  send_telegram "<b>📊 Data URIs:</b>
-
-<b>Text Format:</b>
-<code>${DATA_URI_TEXT}</code>
-
-<b>JSON Format:</b>
-<code>${DATA_URI_JSON}</code>"
 fi
