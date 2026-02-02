@@ -463,50 +463,7 @@ echo "=========================================="
 
 # -------- Send to Telegram --------
 if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
-  # Build the main message with path/service info
-  if [ "$NETWORK" = "ws" ]; then
-    TELEGRAM_PATH="<b>Path:</b> <code>${WSPATH}</code>"
-  elif [ "$NETWORK" = "grpc" ]; then
-    TELEGRAM_PATH="<b>Service:</b> <code>${WSPATH}</code>"
-  else
-    TELEGRAM_PATH=""
-  fi
-  
-  # Prepare optional params info for Telegram
-  TELEGRAM_OPTIONAL=""
-  if [ -n "${SNI}" ]; then
-    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>SNI:</b> <code>${SNI}</code>\n"
-  fi
-  if [ -n "${ALPN}" ] && [ "${ALPN}" != "h2,http/1.1" ]; then
-    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>ALPN:</b> <code>${ALPN}</code>\n"
-  fi
-  if [ -n "${CUSTOM_ID}" ]; then
-    TELEGRAM_OPTIONAL="${TELEGRAM_OPTIONAL}<b>Custom ID:</b> <code>${CUSTOM_ID}</code>\n"
-  fi
-  
-  send_telegram "✅ <b>XRAY DEPLOYMENT SUCCESS</b>
-
-<b>Protocol:</b> <code>${PROTO^^}</code>
-<b>Host:</b> <code>${HOST}</code>
-<b>Port:</b> <code>443</code>
-<b>UUID/Password:</b> <code>${UUID}</code>
-${TELEGRAM_PATH}
-<b>Network:</b> ${NETWORK_DISPLAY} + TLS
-${TELEGRAM_OPTIONAL}"
-  
-  # Send the full share link as a separate message
-  send_telegram "📎 <b>${PROTO^^} LINK:</b>
-
-${SHARE_LINK}"
-  
+  # Send only the copy link
   send_telegram "<b>🔗 Copy Link:</b>
 <code>${SHARE_LINK}</code>"
-  
-  send_telegram "<b>📊 Data URIs:</b>
-
-<b>Text Format:</b>
-<code>${DATA_URI_TEXT}</code>
-
-<b>JSON Format:</b>
-<code>${DATA_URI_JSON}</code>"
 fi
