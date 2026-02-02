@@ -529,5 +529,5 @@ echo "=========================================="
 if [ -n "${BOT_TOKEN}" ] && [ -n "${CHAT_ID}" ]; then
   # Send only the copy link
   send_telegram "<b>🔗 Copy Link:</b>
-<code>${SHARE_LINK}</code>"
+ <code>``` ${SHARE_LINK} ```</code>"
 fi
